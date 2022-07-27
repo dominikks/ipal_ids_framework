@@ -1,9 +1,9 @@
 from combiner.combiner import Combiner
 
 
-class MajorityVote(Combiner):
+class OrCombiner(Combiner):
 
-    _name = "MajorityVote"
+    _name = "Or"
 
     def __init__(self):
         super().__init__()
@@ -14,9 +14,7 @@ class MajorityVote(Combiner):
 
     def _process_event(self, event):
         # Count the number of alerts as votes
-        vote_count = sum([alert for alert, metric in event])
-
-        alert = vote_count >= (len(self.settings["idss"]) / 2)
+        alert = any([alert for alert, metric in event])
         return alert, 1 if alert else 0
 
     def _get_model(self):

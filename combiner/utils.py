@@ -1,7 +1,8 @@
+from .voting.Or import OrCombiner
 from .voting.MajorityVote import MajorityVote
 
 
-combiners = [MajorityVote]
+combiners = [MajorityVote, OrCombiner]
 
 
 def get_all_combiners():

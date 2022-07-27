@@ -30,11 +30,9 @@ logfile = None
 # IDS parameters
 idss = {ids._name: {"_type": ids._name} for ids in get_all_iidss().values()}
 
-# Combiner parameters
-combiners = {
-    combiner._name: {"_type": combiner._name}
-    for combiner in get_all_combiners().values()
-}
+# Combiner (default is Or)
+combiner_config = None
+combiner = {"_type": "Or"}
 
 
 def iids_settings_to_dict():
@@ -43,6 +41,7 @@ def iids_settings_to_dict():
         "compresslevel": compresslevel,
         "config": config,
         "idss": idss,
+        "combiner": combiner,
         "train_ipal": train_ipal,
         "train_state": train_state,
         "live_ipal": live_ipal,

@@ -8,6 +8,7 @@ import sys
 import time
 
 from pathlib import Path
+from combiner.utils import get_all_combiners
 
 import ipal_iids.settings as settings
 
@@ -51,10 +52,7 @@ def dump_ids_default_config(name):
 
     # Create IDSs default config
     config = {
-        name: {
-            "_type": name,
-            **get_all_iidss()[name](name=name)._default_settings,
-        }
+        name: {"_type": name, **get_all_iidss()[name](name=name)._default_settings,}
     }
     config[name]["model-file"] = "./model"
 
@@ -108,6 +106,13 @@ def prepare_arg_parser(parser):
         help="load IDS configuration and parameters from the specified file ('*.gz' compressed).",
         required=False,
     )
+    parser.add_argument(
+        "--combiner-config",
+        dest="combiner_config",
+        metavar="FILE",
+        help="load combiner configuration from the specified file ('*.gz' compressed).",
+        required=False,
+    )
 
     # Further options
     parser.add_argument(
@@ -156,14 +161,20 @@ def prepare_arg_parser(parser):
     )
 
 
-# Returns IDS according to the arguments
-def parse_ids_arguments(args):
+# Returns IDS according to the provided config
+def parse_ids_arguments():
     idss = []
 
     # IDS defined by config file
     for name, config in settings.idss.items():
         idss.append(get_all_iidss()[config["_type"]](name=name))
     return idss
+
+
+# Return the combiner according to the provided config
+def parse_combiner_arguments():
+    combiner = get_all_combiners()[settings.combiner["_type"]]()
+    return combiner
 
 
 def load_settings(args):  # noqa: C901
@@ -248,6 +259,25 @@ def load_settings(args):  # noqa: C901
         settings.logger.error("Could not find config file at {}".format(config_file))
         exit(1)
 
+    # Parse combiner config
+    settings.combiner_config = args.combiner_config
+
+    if settings.combiner_config:
+        combiner_config_file = Path(settings.combiner_config).resolve()
+        if combiner_config_file.is_file():
+            with open_file(settings.combiner_config, "r") as f:
+                try:
+                    settings.combiner = json.load(f)
+                except json.decoder.JSONDecodeError as e:
+                    settings.logger.error("Error parsing combiner config file")
+                    settings.logger.error(e)
+                    exit(1)
+        else:
+            settings.logger.error(
+                "Could not find combiner config file at {}".format(combiner_config_file)
+            )
+            exit(1)
+
 
 def train_idss(idss):
     # Try to load an existing model from file
@@ -308,7 +338,35 @@ def train_idss(idss):
             )
 
 
-def live_idss(idss):
+def train_combiner(idss, combiner):
+    if not settings.retrain:
+        if combiner.load_trained_model():
+            settings.logger.info(
+                "Combiner {} loaded a saved model successfully.".format(combiner._name)
+            )
+            return
+
+    start = time.time()
+    settings.logger.info(
+        "Training of combiner {} started at {}".format(combiner._name, start)
+    )
+
+    combiner.train(idss, ipal=settings.train_ipal, state=settings.train_state)
+
+    end = time.time()
+    settings.logger.info(
+        "Training of combiner {} ended at {} ({}s)".format(
+            combiner._name, end, end - start
+        )
+    )
+
+    if combiner.save_trained_model():
+        settings.logger.info(
+            "Saved trained model of combiner {} to file.".format(combiner._name)
+        )
+
+
+def live_idss(idss, combiner):
     # Keep track of the last state and message information. Then we are capable of delivering them in the right order.
     ipal_msg = None
     state_msg = None
@@ -390,16 +448,21 @@ def main():
     args = parser.parse_args()
     initialize_logger(args)
     load_settings(args)
-    idss = parse_ids_arguments(args)
+    idss = parse_ids_arguments()
+    combiner = parse_combiner_arguments()
 
     try:
         # Train IDSs
         settings.logger.info("Start IDS training...")
         train_idss(idss)
 
+        # Train combiner
+        settings.logger.info("Start combiner training...")
+        train_combiner(combiner)
+
         # Live IDS
         settings.logger.info("Start IDS live...")
-        live_idss(idss)
+        live_idss(idss, combiner)
     except BrokenPipeError:
         devnull = os.open(os.devnull, os.O_WRONLY)
         os.dup2(devnull, sys.stdout.fileno())
