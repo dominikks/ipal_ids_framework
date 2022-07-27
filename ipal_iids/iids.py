@@ -172,8 +172,8 @@ def parse_ids_arguments():
 
 
 # Return the combiner according to the provided config
-def parse_combiner_arguments():
-    combiner = get_all_combiners()[settings.combiner["_type"]]()
+def parse_combiner_arguments(idss):
+    combiner = get_all_combiners()[settings.combiner["_type"]](idss)
     return combiner
 
 
@@ -398,16 +398,18 @@ def live_idss(idss, combiner):
 
         # Process next message
         if is_ipal_smaller:
+            ids_outputs = {}
             ipal_msg["metrics"] = {}
-            ipal_msg["ids"] = False
 
             for ids in idss:
                 if ids.requires("live.ipal"):
                     alert, metric = ids.new_ipal_msg(ipal_msg)
-                    ipal_msg["ids"] = (
-                        ipal_msg["ids"] or alert
-                    )  # combine alerts with or (TODO config ?)
+                    ids_outputs[ids._name] = alert, metric
                     ipal_msg["metrics"][ids._name] = metric
+
+            alert, metric = combiner.process_ipal_msg(ids_outputs)
+            ipal_msg["ids"] = alert
+            ipal_msg["metrics"]["combiner"] = metric
 
             if settings.output:
 
@@ -419,16 +421,18 @@ def live_idss(idss, combiner):
                 settings.outputfd.flush()
             ipal_msg = None
         else:
+            ids_outputs = {}
             state_msg["metrics"] = {}
-            state_msg["ids"] = False
 
             for ids in idss:
                 if ids.requires("live.state"):
                     alert, metric = ids.new_state_msg(state_msg)
-                    state_msg["ids"] = (
-                        state_msg["ids"] or alert
-                    )  # combine alerts with or (TODO config ?)
+                    ids_outputs[ids._name] = alert, metric
                     state_msg["metrics"][ids._name] = metric
+
+            alert, metric = combiner.process_state_msg(ids_outputs)
+            state_msg["ids"] = alert
+            state_msg["metrics"]["combiner"] = metric
 
             if settings.output:
 
@@ -449,7 +453,7 @@ def main():
     initialize_logger(args)
     load_settings(args)
     idss = parse_ids_arguments()
-    combiner = parse_combiner_arguments()
+    combiner = parse_combiner_arguments(idss)
 
     try:
         # Train IDSs
@@ -458,7 +462,7 @@ def main():
 
         # Train combiner
         settings.logger.info("Start combiner training...")
-        train_combiner(combiner)
+        train_combiner(idss, combiner)
 
         # Live IDS
         settings.logger.info("Start IDS live...")

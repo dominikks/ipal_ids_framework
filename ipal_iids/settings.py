@@ -1,7 +1,6 @@
 from io import TextIOWrapper
 import logging
 
-from combiner.utils import get_all_combiners
 from ids.utils import get_all_iidss
 
 version = "v1.2.1"

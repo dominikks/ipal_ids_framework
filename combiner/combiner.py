@@ -1,10 +1,8 @@
 from abc import ABC, abstractmethod
-import json
 from pathlib import Path
-import time
 
 import ipal_iids.settings as settings
-from ipal_iids.utils import open_file, relative_to_config
+from ipal_iids.utils import relative_to_config
 import joblib
 
 
@@ -12,15 +10,30 @@ class Combiner(ABC):
 
     _name = None
     _combiner_default_settings = {
-        "idss": [],  # List of the idss whose outputs are used as input for the combiner
+        "state-idss": None,  # IDS names to be used (None means all compatible to state/ipal)
+        "ipal-idss": None,
         "model-file": None,
     }
 
-    def __init__(self):
-        self.settings = settings.combiners[self._name]
+    def __init__(self, idss):
+        self.settings = settings.combiner
 
         self._default_settings = {}
         self._add_default_settings(self._combiner_default_settings)
+
+        # Add all compatible IDSS if not specifically set
+        if self.settings["state-idss"] is None:
+            self.settings["state-idss"] = [
+                ids._name
+                for ids in idss
+                if ids.requires("train.state") and ids.requires("live.state")
+            ]
+        if self.settings["ipal-idss"] is None:
+            self.settings["ipal-idss"] = [
+                ids._name
+                for ids in idss
+                if ids.requires("train.ipal") and ids.requires("live.ipal")
+            ]
 
     def _add_default_settings(self, settings):
         for key, value in settings.items():
@@ -40,64 +53,74 @@ class Combiner(ABC):
             raise Exception("Can't resolve model file since no model file was provided")
         return relative_to_config(self.settings["model-file"])
 
-    def _load_events(self, idss, ipal=None, state=None):
-        """
-        Load events from a file for training.
-        """
-        if ipal and state:
-            settings.logger.error("Only state or message supported")
-            exit(1)
+    # def _load_ipal_events(self, idss, ipal):
+    #     """
+    #     Load events from an IPAL file for training.
+    #     """
+    #     events = []
+    #     annotations = []
 
-        events = []
-        annotations = []
+    #     start = time.time()
+    #     settings.logger.info("Loading IPAL training file started at {}".format(start))
 
-        start = time.time()
-        settings.logger.info("Loading training file started at {}".format(start))
+    #     with open_file(ipal) as file:
+    #         for msg in file.readline():
+    #             msg = json.loads(msg)
 
-        with open_file(state or ipal) as file:
-            for msg in file.readline():
-                msg = json.loads(msg)
+    #             events.append(
+    #                 [
+    #                     idss[ids_name].new_ipal_msg(msg)
+    #                     for ids_name in self.settings["ipal-idss"]
+    #                 ]
+    #             )
+    #             annotations.append(msg["malicious"])
 
-                if state:
-                    events.append(
-                        [
-                            idss[ids_name].new_state_msg(msg)
-                            for ids_name in self.settings["idss"]
-                        ]
-                    )
-                else:
-                    events.append(
-                        [
-                            idss[ids_name].new_ipal_msg(msg)
-                            for ids_name in self.settings["idss"]
-                        ]
-                    )
+    #     end = time.time()
+    #     settings.logger.info(
+    #         "Loading IPAL training file ended at {} ({}s)".format(end, end - start)
+    #     )
 
-                annotations.append(msg["malicious"])
+    #     return events, annotations
 
-        end = time.time()
-        settings.logger.info(
-            "Loading training file ended at {} ({}s)".format(end, end - start)
-        )
+    # def _load_state_events(self, idss, state):
+    #     """
+    #     Load events from a state file for training.
+    #     """
+    #     events = []
+    #     annotations = []
 
-        return events, annotations
+    #     start = time.time()
+    #     settings.logger.info("Loading state training file started at {}".format(start))
+
+    #     with open_file(state) as file:
+    #         for msg in file.readline():
+    #             msg = json.loads(msg)
+
+    #             events.append(
+    #                 [
+    #                     idss[ids_name].new_state_msg(msg)
+    #                     for ids_name in self.settings["state-idss"]
+    #                 ]
+    #             )
+    #             annotations.append(msg["malicious"])
+
+    #     end = time.time()
+    #     settings.logger.info(
+    #         "Loading state training file ended at {} ({}s)".format(end, end - start)
+    #     )
+
+    #     return events, annotations
 
     @abstractmethod
     def train(self, idss, ipal=None, state=None):
         pass
 
-    def new_ipal_msg(self, idss, msg):
-        event = [idss[ids_name].new_ipal_msg(msg) for ids_name in self.settings["idss"]]
-        return self._process_event(event)
-
-    def new_state_msg(self, idss, msg):
-        event = [
-            idss[ids_name].new_state_msg(msg) for ids_name in self.settings["idss"]
-        ]
-        return self._process_event(event)
+    @abstractmethod
+    def process_ipal_msg(self, ids_outputs):
+        pass
 
     @abstractmethod
-    def _process_event(self, event):
+    def process_state_msg(self, ids_outputs):
         pass
 
     def save_trained_model(self):
@@ -110,7 +133,7 @@ class Combiner(ABC):
 
         return True
 
-    def load_trained_model(self, model):
+    def load_trained_model(self):
         if self.settings["model-file"] is None:
             return False
 
