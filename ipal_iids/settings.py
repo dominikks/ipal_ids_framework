@@ -1,6 +1,7 @@
 from io import TextIOWrapper
 import logging
 
+from combiner.utils import get_all_combiners
 from ids.utils import get_all_iidss
 
 version = "v1.2.1"
@@ -28,6 +29,12 @@ logfile = None
 
 # IDS parameters
 idss = {ids._name: {"_type": ids._name} for ids in get_all_iidss().values()}
+
+# Combiner parameters
+combiners = {
+    combiner._name: {"_type": combiner._name}
+    for combiner in get_all_combiners().values()
+}
 
 
 def iids_settings_to_dict():
