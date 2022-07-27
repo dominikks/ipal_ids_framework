@@ -172,8 +172,8 @@ def parse_ids_arguments():
 
 
 # Return the combiner according to the provided config
-def parse_combiner_arguments(idss):
-    combiner = get_all_combiners()[settings.combiner["_type"]](idss)
+def parse_combiner_arguments():
+    combiner = get_all_combiners()[settings.combiner["_type"]]()
     return combiner
 
 
@@ -453,7 +453,7 @@ def main():
     initialize_logger(args)
     load_settings(args)
     idss = parse_ids_arguments()
-    combiner = parse_combiner_arguments(idss)
+    combiner = parse_combiner_arguments()
 
     try:
         # Train IDSs
