@@ -42,11 +42,7 @@ class Combiner(ABC):
         pass
 
     @abstractmethod
-    def process_ipal_msg(self, ids_outputs):
-        pass
-
-    @abstractmethod
-    def process_state_msg(self, ids_outputs):
+    def combine(self, ids_outputs):
         pass
 
     def save_trained_model(self):

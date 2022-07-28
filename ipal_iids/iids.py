@@ -203,6 +203,14 @@ def load_settings(args):  # noqa: C901
         settings.logger.error("no IDS configuration provided, exiting")
         exit(1)
 
+    # This is a limitation required for the combiner to work properly
+    if args.train_ipal and args.train_state:
+        settings.logger.error("cannot take two datasets as training input")
+        exit(1)
+    if args.live_ipal and args.live_state:
+        settings.logger.error("cannot take two datasets as live input")
+        exit(1)
+
     # Parse training input
     if args.train_ipal:
         settings.train_ipal = args.train_ipal
@@ -407,7 +415,7 @@ def live_idss(idss, combiner):
                     ids_outputs[ids._name] = alert, metric
                     ipal_msg["metrics"][ids._name] = metric
 
-            alert, metric = combiner.process_ipal_msg(ids_outputs)
+            alert, metric = combiner.combine(ids_outputs)
             ipal_msg["ids"] = alert
             ipal_msg["metrics"]["combiner"] = metric
 
@@ -430,7 +438,7 @@ def live_idss(idss, combiner):
                     ids_outputs[ids._name] = alert, metric
                     state_msg["metrics"][ids._name] = metric
 
-            alert, metric = combiner.process_state_msg(ids_outputs)
+            alert, metric = combiner.combine(ids_outputs)
             state_msg["ids"] = alert
             state_msg["metrics"]["combiner"] = metric
 

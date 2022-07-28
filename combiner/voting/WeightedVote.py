@@ -17,7 +17,7 @@ class WeightedVote(Combiner):
         # This Combiner does not need to be trained
         pass
 
-    def process_ipal_msg(self, ids_outputs):
+    def combine(self, ids_outputs):
         weight_sum = sum(
             [
                 (self.settings["weights"][name] or 0) if output[0] else 0
@@ -27,10 +27,6 @@ class WeightedVote(Combiner):
 
         alert = weight_sum >= self.settings["threshold"]
         return alert, weight_sum
-
-    def process_state_msg(self, ids_outputs):
-        # For this combiner, state and ipal behave identical
-        return self.process_ipal_msg(ids_outputs)
 
     def _get_model(self):
         return {}
