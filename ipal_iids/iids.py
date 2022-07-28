@@ -407,12 +407,14 @@ def live_idss(idss, combiner):
         # Process next message
         if is_ipal_smaller:
             ids_outputs = {}
+            ipal_msg["alerts"] = {}
             ipal_msg["metrics"] = {}
 
             for ids in idss:
                 if ids.requires("live.ipal"):
                     alert, metric = ids.new_ipal_msg(ipal_msg)
                     ids_outputs[ids._name] = alert, metric
+                    ipal_msg["alerts"][ids._name] = alert
                     ipal_msg["metrics"][ids._name] = metric
 
             alert, metric = combiner.combine(ids_outputs)
@@ -430,12 +432,14 @@ def live_idss(idss, combiner):
             ipal_msg = None
         else:
             ids_outputs = {}
+            state_msg["alerts"] = {}
             state_msg["metrics"] = {}
 
             for ids in idss:
                 if ids.requires("live.state"):
                     alert, metric = ids.new_state_msg(state_msg)
                     ids_outputs[ids._name] = alert, metric
+                    state_msg["alerts"][ids._name] = metric
                     state_msg["metrics"][ids._name] = metric
 
             alert, metric = combiner.combine(ids_outputs)
