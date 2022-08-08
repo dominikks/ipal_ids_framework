@@ -13,9 +13,11 @@ config = None
 train_ipal = None
 train_state = None
 live_ipal = None
-live_ipalfd: TextIOWrapper
+live_ipalfd: TextIOWrapper = None
 live_state = None
-live_statefd: TextIOWrapper
+live_statefd: TextIOWrapper = None
+live_combiner = None
+live_combinerfd: TextIOWrapper = None
 retrain = False
 output = None
 outputfd: TextIOWrapper

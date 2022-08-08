@@ -93,6 +93,13 @@ def prepare_arg_parser(parser):
         required=False,
     )
     parser.add_argument(
+        "--live.combiner",
+        dest="live_combiner",
+        metavar="FILE",
+        help="input file of IDS-processed IPAL messages to apply the combiner on ('-' stdin, '*.gz' compressed).",
+        required=False,
+    )
+    parser.add_argument(
         "--output",
         dest="output",
         metavar="FILE",
@@ -235,6 +242,14 @@ def load_settings(args):  # noqa: C901
         else:
             settings.live_statefd = sys.stdin
 
+    # Parser combiner input
+    if args.live_combiner:
+        settings.live_combiner = args.live_combiner
+        if settings.live_combiner != "stdin" and settings.live_combiner != "-":
+            settings.live_combinerfd = open_file(settings.live_combiner, "r")
+        else:
+            settings.live_combinerfd = sys.stdin
+
     # Parse retrain
     if args.retrain:
         settings.retrain = True
@@ -376,81 +391,66 @@ def train_combiner(idss, combiner):
 
 def live_idss(idss, combiner):
     # Keep track of the last state and message information. Then we are capable of delivering them in the right order.
-    ipal_msg = None
-    state_msg = None
-    _first_ipal_msg = True
-    _first_state_msg = True
+    msg_sources = {
+        "ipal": {"msg": None, "is_first": True, "fd": settings.live_ipalfd},
+        "state": {"msg": None, "is_first": True, "fd": settings.live_statefd},
+        "combiner": {"msg": None, "is_first": True, "fd": settings.live_combinerfd},
+    }
 
     while True:
-        # load a new ipal message
-        if ipal_msg is None and settings.live_ipal:
-            line = settings.live_ipalfd.readline()
-            if line:
-                ipal_msg = json.loads(line)
+        # load new msgs for all types
+        for msg_source in msg_sources.values():
+            if msg_source["msg"] is None and msg_source["fd"]:
+                line = msg_source["fd"].readline()
+                if line:
+                    msg_source["msg"] = json.loads(line)
 
-        # load a new state
-        if state_msg is None and settings.live_state:
-            line = settings.live_statefd.readline()
-            if line:
-                state_msg = json.loads(line)
+        # filter out sources that do not have a message
+        available_sources = {
+            k: v for k, v in msg_sources.items() if v["msg"] is not None
+        }
 
-        # Determine smallest timestamp ipal or state?
-        if ipal_msg and state_msg:
-            is_ipal_smaller = ipal_msg.timestamp < state_msg.timestamp
-        elif ipal_msg:
-            is_ipal_smaller = True
-        elif state_msg:
-            is_ipal_smaller = False
-        else:  # handled all messages from files
+        # Determine next msg based on timestamp: ipal, state or combiner
+        source, source_entry = min(
+            available_sources.items(),
+            key=lambda item: item[1]["msg"]["timestamp"],
+            default=(None, None),
+        )
+        if source is None:  # handled all messages
             break
 
-        # Process next message
-        if is_ipal_smaller:
-            ipal_msg["alerts"] = {}
-            ipal_msg["metrics"] = {}
+        msg = source_entry["msg"]
 
-            for ids in idss:
-                if ids.requires("live.ipal"):
-                    alert, metric = ids.new_ipal_msg(ipal_msg)
-                    ipal_msg["alerts"][ids._name] = alert
-                    ipal_msg["metrics"][ids._name] = metric
+        if not "alerts" in msg:
+            msg["alerts"] = {}
+        if not "metrics" in msg:
+            msg["metrics"] = {}
 
-            alert, metric = combiner.combine(ipal_msg)
-            ipal_msg["ids"] = alert
-            ipal_msg["metrics"]["combiner"] = metric
+        for ids in idss:
+            if source == "ipal" and ids.requires("live.ipal"):
+                alert, metric = ids.new_ipal_msg(msg)
+            elif source == "state" and ids.requires("live.state"):
+                alert, metric = ids.new_state_msg(msg)
+            else:  # combiner msgs do not need an ids invocation
+                continue
 
-            if settings.output:
+            msg["alerts"][ids._name] = alert
+            msg["metrics"][ids._name] = metric
 
-                if _first_ipal_msg:
-                    ipal_msg["_iids-config"] = settings.iids_settings_to_dict()
-                    _first_ipal_msg = False
+        alert, metric = combiner.combine(msg)
+        msg["ids"] = alert
+        msg["ids_metric"] = metric
 
-                settings.outputfd.write(json.dumps(ipal_msg) + "\n")
-                settings.outputfd.flush()
-            ipal_msg = None
-        else:
-            state_msg["alerts"] = {}
-            state_msg["metrics"] = {}
+        if settings.output:
 
-            for ids in idss:
-                if ids.requires("live.state"):
-                    alert, metric = ids.new_state_msg(state_msg)
-                    state_msg["alerts"][ids._name] = metric
-                    state_msg["metrics"][ids._name] = metric
+            if source_entry["is_first"]:
+                msg["_iids-config"] = settings.iids_settings_to_dict()
+                source_entry["is_first"] = False
 
-            alert, metric = combiner.combine(state_msg)
-            state_msg["ids"] = alert
-            state_msg["metrics"]["combiner"] = metric
+            settings.outputfd.write(json.dumps(msg) + "\n")
+            settings.outputfd.flush()
 
-            if settings.output:
-
-                if _first_state_msg:
-                    state_msg["_iids-config"] = settings.iids_settings_to_dict()
-                    _first_state_msg = False
-
-                settings.outputfd.write(json.dumps(state_msg) + "\n")
-                settings.outputfd.flush()
-            state_msg = None
+        source_entry["msg"] = None
 
 
 def main():
