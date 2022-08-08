@@ -5,8 +5,8 @@ class MajorityVote(Combiner):
 
     _name = "MajorityVote"
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, name=None):
+        super().__init__(name=name)
 
     def train(self, idss, ipal=None, state=None):
         # This Combiner does not need to be trained

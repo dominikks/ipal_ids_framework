@@ -13,8 +13,9 @@ class Combiner(ABC):
         "model-file": None,
     }
 
-    def __init__(self):
-        self.settings = settings.combiner
+    def __init__(self, name=None):
+        self._name = name
+        self.settings = settings.idss[self._name]
 
         self._default_settings = {}
         self._add_default_settings(self._combiner_default_settings)

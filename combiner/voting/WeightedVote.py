@@ -9,8 +9,8 @@ class WeightedVote(Combiner):
         "threshold": 1,
     }
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, name=None):
+        super().__init__(name=name)
         self._add_default_settings(self._weightedvote_default_settings)
 
     def train(self, idss, ipal=None, state=None):
