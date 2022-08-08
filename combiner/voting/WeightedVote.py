@@ -17,11 +17,11 @@ class WeightedVote(Combiner):
         # This Combiner does not need to be trained
         pass
 
-    def combine(self, ids_outputs):
+    def combine(self, msg):
         weight_sum = sum(
             [
-                (self.settings["weights"][name] or 0) if output[0] else 0
-                for name, output in ids_outputs.items()
+                (self.settings["weights"][name] or 0) if alert else 0
+                for name, alert in msg["alerts"].items()
             ]
         )
 

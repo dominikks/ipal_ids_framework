@@ -12,8 +12,8 @@ class OrCombiner(Combiner):
         # This Combiner does not need to be trained
         pass
 
-    def combine(self, ids_outputs):
-        alert = any([alert for alert, metric in ids_outputs.values()])
+    def combine(self, msg):
+        alert = any(msg["alerts"].values())
         return alert, 1 if alert else 0
 
     def _get_model(self):

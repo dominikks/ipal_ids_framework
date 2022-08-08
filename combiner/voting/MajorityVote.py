@@ -12,16 +12,12 @@ class MajorityVote(Combiner):
         # This Combiner does not need to be trained
         pass
 
-    def combine(self, ids_outputs):
+    def combine(self, msg):
         # Count the number of alerts as votes
-        vote_count = sum([alert for alert, metric in ids_outputs.values()])
+        vote_count = sum(msg["alerts"].values())
 
-        alert = vote_count > (len(ids_outputs) / 2)
+        alert = vote_count > (len(msg["alerts"]) / 2)
         return alert, 1 if alert else 0
-
-    def process_state_msg(self, ids_outputs):
-        # For this combiner, state and ipal behave identical
-        return self.combine(ids_outputs)
 
     def _get_model(self):
         return {}

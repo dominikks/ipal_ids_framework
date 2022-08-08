@@ -42,7 +42,7 @@ class Combiner(ABC):
         pass
 
     @abstractmethod
-    def combine(self, ids_outputs):
+    def combine(self, msg):
         pass
 
     def save_trained_model(self):
