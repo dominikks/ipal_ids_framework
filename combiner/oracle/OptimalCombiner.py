@@ -28,22 +28,38 @@ class OptimalCombiner(Combiner):
             settings.logger.error("Only state or message supported")
             exit(1)
 
-        # Load train set
-        msgs = []
-        with open_file(state if state else ipal) as file:
-            for msg in file.readlines():
-                msgs.append(json.loads(msg))
-
         # Only the IDSs compatible with the selected format (message or state)
         idss = [
             ids for ids in idss if ids.requires("live.ipal" if ipal else "live.state")
         ]
+
+        settings.logger.debug(
+            "Loading dataset and running IDSs for combiner training..."
+        )
+
+        # Load train set and apply idss on it
+        msgs = []
+        with open_file(state if state else ipal) as file:
+            for msg in file.readlines():
+                msg = json.loads(msg)
+                alerts = []
+
+                for ids in idss:
+                    alert, metric = (
+                        ids.new_state_msg(msg) if state else ids.new_ipal_msg(msg)
+                    )
+                    alerts.append(alert)
+
+                msg["ids-outputs"] = alerts
+                msgs.append(msg)
 
         # Save the order if the IDSs
         self._ids_order = [ids._name for ids in idss]
 
         # All possible IDS outputs (which are inputs to the combiner)
         input_order = self._get_input_order()
+
+        settings.logger.info("Starting combiner training...")
 
         # Track current progress
         best_fct = None
@@ -54,15 +70,7 @@ class OptimalCombiner(Combiner):
             missclassification_count = 0
 
             for msg in msgs:
-                alerts = []
-
-                for ids in idss:
-                    alert, metric = (
-                        ids.new_state_msg(msg) if state else ids.new_ipal_msg(msg)
-                    )
-                    alerts.append(alert)
-
-                input_index = input_order.index(tuple(alerts))
+                input_index = input_order.index(tuple(msg["ids-outputs"]))
                 output = output_assignment[input_index]
 
                 malicious = msg["malicious"] is not False
@@ -72,6 +80,8 @@ class OptimalCombiner(Combiner):
             if missclassification_count < best_missclassification_count:
                 best_missclassification_count = missclassification_count
                 best_fct = output_assignment
+
+        settings.logger.info("Combiner training done")
 
         # Save optimal fct
         self._combiner_fct = best_fct
