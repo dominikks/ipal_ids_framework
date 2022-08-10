@@ -20,4 +20,4 @@ class OrCombiner(Combiner):
         return {}
 
     def _load_model(self, model):
-        return {}
+        pass
