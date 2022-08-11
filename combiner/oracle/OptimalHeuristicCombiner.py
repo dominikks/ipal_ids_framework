@@ -6,9 +6,12 @@ import ipal_iids.settings as settings
 import itertools
 
 
-class OptimalCombiner(Combiner):
+class OptimalHeuristicCombiner(Combiner):
+    """
+    This combiner implements a heuristic that minimizes the number of missclassifications, which maximizes accuracy.
+    """
 
-    _name = "OptimalCombiner"
+    _name = "OptimalHeuristicCombiner"
 
     def __init__(self, name=None):
         super().__init__(name=name)
@@ -33,12 +36,19 @@ class OptimalCombiner(Combiner):
             ids for ids in idss if ids.requires("live.ipal" if ipal else "live.state")
         ]
 
+        # Save the order of the IDSs
+        self._ids_order = [ids._name for ids in idss]
+
+        # All possible IDS outputs (which are inputs to the combiner)
+        inputs = self._get_input_order()
+
         settings.logger.debug(
             "Loading dataset and running IDSs for combiner training..."
         )
 
-        # Load train set and apply idss on it
-        msgs = []
+        # For each tuple of IDS inputs, we count how many times it is malicious and how many times it is benign
+        input_stats = {input: {"malicious": 0, "benign": 0} for input in inputs}
+
         with open_file(state if state else ipal) as file:
             for msg in file.readlines():
                 msg = json.loads(msg)
@@ -50,41 +60,22 @@ class OptimalCombiner(Combiner):
                     )
                     alerts.append(alert)
 
-                msg["ids-outputs"] = alerts
-                msgs.append(msg)
+                input = tuple(alerts)
+                input_stats[input][
+                    "malicious" if msg["malicious"] is not False else "benign"
+                ] += 1
 
-        # Save the order if the IDSs
-        self._ids_order = [ids._name for ids in idss]
+        settings.logger.info("Computing optimal combiner...")
 
-        # All possible IDS outputs (which are inputs to the combiner)
-        input_order = self._get_input_order()
+        # Assign an output to each input based on if there are more malicious or benign packets with that input
+        outputs = []
+        for input in inputs:
+            stats = input_stats[input]
+            outputs.append(stats["malicious"] >= stats["benign"])
 
-        settings.logger.info("Starting combiner training...")
-
-        # Track current progress
-        best_fct = None
-        best_missclassification_count = math.inf
-
-        # Iterate through all possible assignments of outputs ([0, 1]) to inputs
-        for output_assignment in itertools.product([0, 1], repeat=len(input_order)):
-            missclassification_count = 0
-
-            for msg in msgs:
-                input_index = input_order.index(tuple(msg["ids-outputs"]))
-                output = output_assignment[input_index]
-
-                malicious = msg["malicious"] is not False
-                if output != malicious:
-                    missclassification_count += 1
-
-            if missclassification_count < best_missclassification_count:
-                best_missclassification_count = missclassification_count
-                best_fct = output_assignment
+        self._combiner_fct = outputs
 
         settings.logger.info("Combiner training done")
-
-        # Save optimal fct
-        self._combiner_fct = best_fct
 
     def combine(self, msg):
         inputs = tuple(msg["alerts"][ids_name] for ids_name in self._ids_order)
