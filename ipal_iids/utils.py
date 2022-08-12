@@ -5,16 +5,16 @@ import sys
 import ipal_iids.settings as settings
 
 
-def open_file(filename, mode="r"):
+def open_file(filename, mode="r", **args):
     filename = str(filename)
     if filename is None:
         return None
     elif filename.endswith(".gz"):
-        return gzip.open(filename, mode)
+        return gzip.open(filename, mode, **args)
     elif filename == "-":
         return sys.stdin
     else:
-        return open(filename, mode)
+        return open(filename, mode, **args)
 
 
 def relative_to_config(file: str) -> Path:

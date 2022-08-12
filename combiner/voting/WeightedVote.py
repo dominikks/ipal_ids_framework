@@ -13,10 +13,6 @@ class WeightedVote(Combiner):
         super().__init__(name=name)
         self._add_default_settings(self._weightedvote_default_settings)
 
-    def train(self, idss, ipal=None, state=None):
-        # This Combiner does not need to be trained
-        pass
-
     def combine(self, msg):
         weight_sum = sum(
             [
@@ -27,9 +23,3 @@ class WeightedVote(Combiner):
 
         alert = weight_sum >= self.settings["threshold"]
         return alert, weight_sum
-
-    def _get_model(self):
-        return {}
-
-    def _load_model(self, model):
-        pass

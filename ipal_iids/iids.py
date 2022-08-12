@@ -79,6 +79,13 @@ def prepare_arg_parser(parser):
         required=False,
     )
     parser.add_argument(
+        "--train.combiner",
+        dest="train_combiner",
+        metavar="FILE",
+        help="input file of IDS-processed IPAL messages to train the combiner on ('-' stdin, '*.gz' compressed).",
+        required=False,
+    )
+    parser.add_argument(
         "--live.ipal",
         dest="live_ipal",
         metavar="FILE",
@@ -103,8 +110,14 @@ def prepare_arg_parser(parser):
         "--output",
         dest="output",
         metavar="FILE",
-        help="output file to write the anotated IDS output to (Default:none, '-' stdout, '*,gz' compress).",
+        help="output file to write the anotated IDS output to (Default:none, '-' stdout, '*.gz' compress).",
         required=False,
+    )
+    parser.add_argument(
+        "--output.train",
+        dest="output_train",
+        metavar="FILE",
+        help="output file to write the annotated IDS output on the train set to (Default:none, '-' stdout, '*.gz' compress).",
     )
     parser.add_argument(
         "--config",
@@ -223,6 +236,8 @@ def load_settings(args):  # noqa: C901
         settings.train_ipal = args.train_ipal
     if args.train_state:
         settings.train_state = args.train_state
+    if args.train_combiner:
+        settings.train_combiner = args.train_combiner
 
     # Parse live ipal input
     if args.live_ipal:
@@ -265,6 +280,16 @@ def load_settings(args):  # noqa: C901
             settings.outputfd = open_file(settings.output, "wt")
         else:
             settings.outputfd = sys.stdout
+
+    if args.output_train:
+        settings.output_train = args.output_train
+    if settings.output_train:
+        if settings.output_train != "stdout" and settings.output_train != "-":
+            # clear the file we are about to write to
+            open_file(settings.output_train, "wt").close()
+            settings.output_trainfd = open_file(settings.output_train, "wt")
+        else:
+            settings.output_trainfd = sys.stdout
 
     # Parse config
     settings.config = args.config
@@ -343,22 +368,98 @@ def train_idss(idss):
 
 
 def train_combiners(idss, combiners):
-    for combiner in combiners:
-        if not settings.retrain:
+    trainable_combiners = [
+        combiner for combiner in combiners if combiner._needs_training
+    ]
+
+    # Attempt to load combiners from disk
+    loaded_from_file = []
+    if not settings.retrain:
+        for combiner in trainable_combiners:
             if combiner.load_trained_model():
                 settings.logger.info(
                     "Combiner {} loaded a saved model successfully.".format(
                         combiner._name
                     )
                 )
-                return
+                loaded_from_file.append(combiner)
+
+    # If all combiners were loaded from disk, we can abort
+    if len(loaded_from_file) == len(trainable_combiners) and not settings.output_train:
+        return
+
+    # Load the dataset and compute alerts from all IDSs
+    msgs = []
+
+    if settings.train_combiner:
+        # If we have a dataset with pre-computed alerts, we just need to load it
+        settings.logger.info("Loading pre-computed combiner training dataset.")
+
+        with open_file(settings.train_combiner, "rt") as f:
+            for msg in f.readlines():
+                msgs.append(json.loads(msg))
+
+    elif settings.train_ipal:
+        settings.logger.info(
+            "Loading IPAL dataset for combiner training and computing IDS outputs."
+        )
+
+        with open_file(settings.train_ipal, "rt") as f:
+            for msg in f.readlines():
+                msg = json.loads(msg)
+                msg["alerts"] = {}
+                msg["metrics"] = {}
+
+                for ids in idss:
+                    if ids.requires("train.ipal"):
+                        alert, metric = ids.new_ipal_msg(msg)
+                        msg["alerts"][ids._name] = alert
+                        msg["metrics"][ids._name] = metric
+
+                msgs.append(msg)
+
+    elif settings.train_state:
+        settings.logger.info(
+            "Loading state dataset for combiner training and computing IDS outputs."
+        )
+
+        with open_file(settings.train_state, "rt") as f:
+            for msg in f.readlines():
+                msg = json.loads(msg)
+                msg["alerts"] = {}
+                msg["metrics"] = {}
+
+                for ids in idss:
+                    if ids.requires("train.state"):
+                        alert, metric = ids.new_state_msg(msg)
+                        msg["alerts"][ids._name] = alert
+                        msg["metrics"][ids._name] = metric
+
+                msgs.append(msg)
+
+    # Save dataset to disk
+    if settings.output_train:
+        is_first = True
+
+        for msg in msgs:
+            if is_first:
+                msg["_iids-config"] = settings.iids_settings_to_dict()
+                is_first = False
+
+            settings.output_trainfd.write(json.dumps(msg) + "\n")
+            settings.output_trainfd.flush()
+
+    # Run combiner training with our loaded messages
+    for combiner in trainable_combiners:
+        if combiner in loaded_from_file:
+            continue
 
         start = time.time()
         settings.logger.info(
             "Training of combiner {} started at {}".format(combiner._name, start)
         )
 
-        combiner.train(idss, ipal=settings.train_ipal, state=settings.train_state)
+        combiner.train(msgs=msgs)
 
         end = time.time()
         settings.logger.info(
@@ -371,6 +472,8 @@ def train_combiners(idss, combiners):
             settings.logger.info(
                 "Saved trained model of combiner {} to file.".format(combiner._name)
             )
+
+    settings.logger.info("Combiner training finished.")
 
 
 def live_idss(idss, combiners):
@@ -479,6 +582,8 @@ def main():
     # Finalize and close
     if settings.output and settings.outputfd != sys.stdout:
         settings.outputfd.close()
+    if settings.output_train and settings.output_trainfd != sys.stdout:
+        settings.output_trainfd.close()
     if settings.live_ipal:
         settings.live_ipalfd.close()
     if settings.live_state:

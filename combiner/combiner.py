@@ -9,6 +9,7 @@ import joblib
 class Combiner(ABC):
 
     _name = None
+    _needs_training = False
     _combiner_default_settings = {
         "model-file": None,
     }
@@ -38,8 +39,7 @@ class Combiner(ABC):
             raise Exception("Can't resolve model file since no model file was provided")
         return relative_to_config(self.settings["model-file"])
 
-    @abstractmethod
-    def train(self, idss, ipal=None, state=None):
+    def train(self, msgs):
         pass
 
     @abstractmethod
@@ -71,10 +71,8 @@ class Combiner(ABC):
         self.settings = model["settings"]
         self._load_model(model)
 
-    @abstractmethod
     def _get_model(self):
-        pass
+        return {}
 
-    @abstractmethod
     def _load_model(self, model):
         pass

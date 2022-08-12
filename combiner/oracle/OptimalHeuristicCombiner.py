@@ -1,3 +1,5 @@
+import csv
+import gzip
 import json
 import math
 from combiner.combiner import Combiner
@@ -12,9 +14,15 @@ class OptimalHeuristicCombiner(Combiner):
     """
 
     _name = "OptimalHeuristicCombiner"
+    _needs_training = True
+
+    _optimalheuristic_default_settings = {
+        "stats-file": None,
+    }
 
     def __init__(self, name=None):
         super().__init__(name=name)
+        self._add_default_settings(self._optimalheuristic_default_settings)
 
         # List of IDS names (used to establish an ordering)
         self._ids_order = None
@@ -26,46 +34,37 @@ class OptimalHeuristicCombiner(Combiner):
         # Sequentialized into a list.
         return list(itertools.product([0, 1], repeat=len(self._ids_order)))
 
-    def train(self, idss, ipal=None, state=None):
-        if ipal and state:
-            settings.logger.error("Only state or message supported")
-            exit(1)
-
-        # Only the IDSs compatible with the selected format (message or state)
-        idss = [
-            ids for ids in idss if ids.requires("live.ipal" if ipal else "live.state")
-        ]
-
+    def train(self, msgs):
         # Save the order of the IDSs
-        self._ids_order = [ids._name for ids in idss]
+        self._ids_order = msgs[0]["alerts"].keys()
 
         # All possible IDS outputs (which are inputs to the combiner)
         inputs = self._get_input_order()
 
-        settings.logger.debug(
-            "Loading dataset and running IDSs for combiner training..."
-        )
-
         # For each tuple of IDS inputs, we count how many times it is malicious and how many times it is benign
         input_stats = {input: {"malicious": 0, "benign": 0} for input in inputs}
 
-        with open_file(state if state else ipal) as file:
-            for msg in file.readlines():
-                msg = json.loads(msg)
-                alerts = []
+        settings.logger.info("Computing statistics over train set...")
 
-                for ids in idss:
-                    alert, metric = (
-                        ids.new_state_msg(msg) if state else ids.new_ipal_msg(msg)
-                    )
-                    alerts.append(alert)
+        for msg in msgs:
+            alerts = tuple(msg["alerts"][ids_name] for ids_name in self._ids_order)
+            input_stats[alerts][
+                "malicious" if msg["malicious"] is not False else "benign"
+            ] += 1
 
-                input = tuple(alerts)
-                input_stats[input][
-                    "malicious" if msg["malicious"] is not False else "benign"
-                ] += 1
+        if self.settings["stats-file"] is not None:
+            settings.logger.info("Dumping computed message statistics to file.")
+            with open_file(self.settings["stats-file"], "wt", newline="") as f:
+                writer = csv.writer(f)
+                writer.writerow([*self._ids_order, "malicious", "benign"])
+                writer.writerows(
+                    [
+                        [*input, stats["malicious"], stats["benign"]]
+                        for input, stats in input_stats.items()
+                    ]
+                )
 
-        settings.logger.info("Computing optimal combiner...")
+        settings.logger.info("Computing optimal heuristic combiner...")
 
         # Assign an output to each input based on if there are more malicious or benign packets with that input
         outputs = []

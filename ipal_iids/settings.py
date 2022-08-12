@@ -12,6 +12,7 @@ compresslevel = 9  # 0 no compress, 1 large/fast, 9 small/slow
 config = None
 train_ipal = None
 train_state = None
+train_combiner = None
 live_ipal = None
 live_ipalfd: TextIOWrapper = None
 live_state = None
@@ -21,6 +22,8 @@ live_combinerfd: TextIOWrapper = None
 retrain = False
 output = None
 outputfd: TextIOWrapper
+output_train = None
+output_trainfd: TextIOWrapper
 
 # Logging settings
 logger = logging.getLogger("ipal-iids")
@@ -40,10 +43,13 @@ def iids_settings_to_dict():
         "idss": idss,
         "train_ipal": train_ipal,
         "train_state": train_state,
+        "train_combiner": train_combiner,
         "live_ipal": live_ipal,
         "live_state": live_state,
+        "live_combiner": live_combiner,
         "retrain": retrain,
         "output": output,
+        "output_train": output_train,
         "log": log,
         "logformat": logformat,
         "logfile": logfile,
