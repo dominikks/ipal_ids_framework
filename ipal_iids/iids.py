@@ -396,7 +396,7 @@ def train_combiners(idss, combiners):
         settings.logger.info("Loading pre-computed combiner training dataset.")
 
         with open_file(settings.train_combiner, "rt") as f:
-            for msg in f.readlines():
+            for msg in f:
                 msgs.append(json.loads(msg))
 
     elif settings.train_ipal:
@@ -405,7 +405,7 @@ def train_combiners(idss, combiners):
         )
 
         with open_file(settings.train_ipal, "rt") as f:
-            for msg in f.readlines():
+            for msg in f:
                 msg = json.loads(msg)
                 msg["alerts"] = {}
                 msg["metrics"] = {}
@@ -424,7 +424,7 @@ def train_combiners(idss, combiners):
         )
 
         with open_file(settings.train_state, "rt") as f:
-            for msg in f.readlines():
+            for msg in f:
                 msg = json.loads(msg)
                 msg["alerts"] = {}
                 msg["metrics"] = {}
