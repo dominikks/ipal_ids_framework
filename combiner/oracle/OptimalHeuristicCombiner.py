@@ -36,7 +36,7 @@ class OptimalHeuristicCombiner(Combiner):
 
     def train(self, msgs):
         # Save the order of the IDSs
-        self._ids_order = msgs[0]["alerts"].keys()
+        self._ids_order = list(msgs[0]["alerts"].keys())
 
         # All possible IDS outputs (which are inputs to the combiner)
         inputs = self._get_input_order()
