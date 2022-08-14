@@ -50,6 +50,13 @@ def prepare_arg_parser(parser):
         nargs="+",
     )
 
+    # Name of BLSTM
+    parser.add_argument(
+        "--blstm-name",
+        help="name of the BLSTM model whose alerts should be extended. If omitted, the alerts and metrics arrays are left untouched.",
+        required=False,
+    )
+
     # Logging
     parser.add_argument(
         "--log",
@@ -68,7 +75,7 @@ def prepare_arg_parser(parser):
     )
 
 
-def extend_alarms(file):
+def extend_alarms(file, blstm_name=None):
 
     ipal = []
 
@@ -93,9 +100,10 @@ def extend_alarms(file):
                 offset = -i
 
             ipal[i + offset]["ids"] = alert
-            ipal[i + offset]["metrics"] = {
-                k: metric for k in ipal[i + offset]["metrics"]
-            }
+
+            if blstm_name:
+                ipal[i + offset]["alerts"][blstm_name] = alert
+                ipal[i + offset]["metrics"][blstm_name] = metric
 
         del ipal[i]["adjust"]
 
@@ -112,6 +120,9 @@ def main():
     args = parser.parse_args()
     initialize_logger(args)
 
+    if not args.blstm_name:
+        settings.logger.info("BLSTM name not provided, only extending ids output")
+
     N = 0
     for file in args.files:
         N += 1
@@ -119,7 +130,7 @@ def main():
             "Extending Alarms ({}/{}) {}".format(N, len(args.files), file)
         )
 
-        extend_alarms(file)
+        extend_alarms(file, args.blstm_name)
 
 
 if __name__ == "__main__":
