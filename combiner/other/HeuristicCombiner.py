@@ -1,28 +1,25 @@
 import csv
-import gzip
-import json
-import math
 from combiner.combiner import Combiner
 from ipal_iids.utils import open_file
 import ipal_iids.settings as settings
 import itertools
 
 
-class OptimalHeuristicCombiner(Combiner):
+class HeuristicCombiner(Combiner):
     """
     This combiner implements a heuristic that minimizes the number of missclassifications, which maximizes accuracy.
     """
 
-    _name = "OptimalHeuristicCombiner"
+    _name = "HeuristicCombiner"
     _needs_training = True
 
-    _optimalheuristic_default_settings = {
+    _heuristic_default_settings = {
         "stats-file": None,
     }
 
     def __init__(self, name=None):
         super().__init__(name=name)
-        self._add_default_settings(self._optimalheuristic_default_settings)
+        self._add_default_settings(self._heuristic_default_settings)
 
         # List of IDS names (used to establish an ordering)
         self._ids_order = None
@@ -64,7 +61,7 @@ class OptimalHeuristicCombiner(Combiner):
                     ]
                 )
 
-        settings.logger.info("Computing optimal heuristic combiner...")
+        settings.logger.info("Computing heuristic combiner...")
 
         # Assign an output to each input based on if there are more malicious or benign packets with that input
         outputs = []

@@ -1,15 +1,11 @@
-from .oracle.OptimalHeuristicCombiner import OptimalHeuristicCombiner
+from .oracle.OptimalCombiner import OptimalCombiner
+from .other.HeuristicCombiner import HeuristicCombiner
 from .voting.WeightedVote import WeightedVote
 from .voting.Or import OrCombiner
 from .voting.MajorityVote import MajorityVote
 
 
-combiners = [
-    MajorityVote,
-    OrCombiner,
-    WeightedVote,
-    OptimalHeuristicCombiner,
-]
+combiners = [MajorityVote, OrCombiner, WeightedVote, HeuristicCombiner, OptimalCombiner]
 
 
 def get_all_combiners():

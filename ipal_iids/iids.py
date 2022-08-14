@@ -513,10 +513,8 @@ def live_idss(idss, combiners):
         if not "metrics" in msg:
             msg["metrics"] = {}
 
-        if not "combiner_alerts" in msg:
-            msg["combiner_alerts"] = {}
-        if not "combiner_metrics" in msg:
-            msg["combiner_metrics"] = {}
+        msg["combiner_alerts"] = {}
+        msg["combiner_metrics"] = {}
 
         for ids in idss:
             if source == "ipal" and ids.requires("live.ipal"):
