@@ -71,6 +71,8 @@ class Combiner(ABC):
         self.settings = model["settings"]
         self._load_model(model)
 
+        return True
+
     def _get_model(self):
         return {}
 

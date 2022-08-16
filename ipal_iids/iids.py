@@ -396,7 +396,10 @@ def train_combiners(idss, combiners):
                 loaded_from_file.append(combiner)
 
     # If all combiners were loaded from disk, we can abort
-    if len(loaded_from_file) == len(trainable_combiners) and not settings.output_train:
+    if (
+        len(loaded_from_file) == len(trainable_combiners)
+        and not settings.output_traincombiner
+    ):
         return
 
     # Load the dataset and compute alerts from all IDSs
