@@ -17,8 +17,10 @@ class NaiveBayes(FeatureIDS):
     _name = "NaiveBayes"
     _description = "Naive bayes classifier."
     _naivebayes_default_settings = {
+        # Wether to calculate the probability as metric in the live phase (takes more time!)
+        "calculate_metric": False,
         # Naive Bayes type
-        "nb-classifier": "Gaussian",  # Gaussian, Multinomal, Complement, Bernoulli, Categorical
+        "nb-classifier": "Gaussian",  # Gaussian, Multinomial, Complement, Bernoulli, Categorical
     }
 
     def __init__(self, name=None):
@@ -68,8 +70,13 @@ class NaiveBayes(FeatureIDS):
         if state is None:
             return False, False
 
-        alert = bool(self.nbc.predict([state])[0])
-        return alert, 1 if alert else 0
+        if self.settings["calculate_metric"]:
+            probability = self.nbc.predict_proba([state])[0][self.classes.index(True)]
+            alert = bool(probability > 0.5)
+            return alert, probability
+        else:
+            alert = bool(self.nbc.predict([state])[0])
+            return alert, 1 if alert else 0
 
     def new_ipal_msg(self, msg):
         # There is no difference for this IDS in state or message format! It only depends on the configuration which features are used.

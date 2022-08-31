@@ -12,6 +12,8 @@ class ExtraTrees(FeatureIDS):
     _name = "ExtraTrees"
     _description = "Extra-trees classifier."
     _extratrees_default_settings = {
+        # Wether to calculate the probability as metric in the live phase (takes more time!)
+        "calculate_metric": False,
         # ExtraTrees GridSearch Parameters
         # TODO Better sample random values?
         "n_estimators": [1, 10, 100, 1000],
@@ -104,13 +106,13 @@ class ExtraTrees(FeatureIDS):
         if state is None:
             return False, None
 
-        alert = bool(self.etc.predict([state])[0])
-        return alert, 1 if alert else 0
-
-        # alternative - set probability to True (takes more time!)
-        # prediction = self.etc.predict_proba([state])[0][self.classes.index(True)]
-        # alert = bool(prediction > 0.5)
-        # return alert, prediction
+        if self.settings["calculate_metric"]:
+            probability = self.etc.predict_proba([state])[0][self.classes.index(True)]
+            alert = bool(probability > 0.5)
+            return alert, probability
+        else:
+            alert = bool(self.etc.predict([state])[0])
+            return alert, 1 if alert else 0
 
     def new_ipal_msg(self, msg):
         # There is no difference for this IDS in state or message format! It only depends on the configuration which features are used.

@@ -12,6 +12,8 @@ class SVM(FeatureIDS):
     _name = "SVM"
     _description = "SVM forest classifier."
     _svm_default_settings = {
+        # Wether to calculate the probability as metric in the live phase (takes more time!)
+        "calculate_metric": False,
         # SVM GridSearch Parameters
         # Better sample random values?
         "C": [0.1, 1, 10, 100, 1000],
@@ -61,7 +63,7 @@ class SVM(FeatureIDS):
             "gamma": self.settings["gamma"],
             "coef0": self.settings["coef0"],
             "shrinking": self.settings["shrinking"],
-            "probability": [False],
+            "probability": [self.settings["calculate_metric"]],
             "tol": self.settings["tol"],
             "cache_size": self.settings["cache_size"],
             "class_weight": self.settings["class_weight"],
@@ -99,13 +101,13 @@ class SVM(FeatureIDS):
         if state is None:
             return False, None
 
-        alert = bool(self.svm.predict([state])[0])
-        return alert, 1 if alert else 0
-
-        # alternative - set probability to True (takes more time!)
-        # prediction = self.rfc.predict_proba([state])[0][self.classes.index(True)]
-        # alert = bool(prediction > 0.5)
-        # return alert, prediction
+        if self.settings["calculate_metric"]:
+            prediction = self.svm.predict_proba([state])[0][self.classes.index(True)]
+            alert = bool(prediction > 0.5)
+            return alert, prediction
+        else:
+            alert = bool(self.svm.predict([state])[0])
+            return alert, 1 if alert else 0
 
     def new_ipal_msg(self, msg):
         # There is no difference for this IDS in state or message format! It only depends on the configuration which features are used.

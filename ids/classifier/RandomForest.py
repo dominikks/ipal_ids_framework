@@ -12,6 +12,8 @@ class RandomForest(FeatureIDS):
     _name = "RandomForest"
     _description = "Random forest classifier."
     _randomforest_default_settings = {
+        # Wether to calculate the probability as metric in the live phase (takes more time!)
+        "calculate_metric": False,
         # RandomForest GridSearch Parameters
         # TODO Better sample random values?
         "n_estimators": [1, 10, 100, 1000],
@@ -104,13 +106,13 @@ class RandomForest(FeatureIDS):
         if state is None:
             return False, None
 
-        alert = bool(self.rfc.predict([state])[0])
-        return alert, 1 if alert else 0
-
-        # alternative
-        # prediction = self.rfc.predict_proba([state])[0][self.classes.index(True)]
-        # alert = bool(prediction > 0.5)
-        # return alert, prediction
+        if self.settings["calculate_metric"]:
+            prediction = self.rfc.predict_proba([state])[0][self.classes.index(True)]
+            alert = bool(prediction > 0.5)
+            return alert, prediction
+        else:
+            alert = bool(self.rfc.predict([state])[0])
+            return alert, 1 if alert else 0
 
     def new_ipal_msg(self, msg):
         # There is no difference for this IDS in state or message format! It only depends on the configuration which features are used.
