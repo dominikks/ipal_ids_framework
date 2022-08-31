@@ -559,7 +559,8 @@ def main():
 
     if not combiners:
         # Make sure there is at least one combiner
-        combiners.append(get_all_combiners()["Or"])
+        settings.idss["DefaultOrCombiner"] = {"_type": "OrCombiner"}
+        combiners.append(get_all_combiners()["Or"](name="DefaultOrCombiner"))
 
     try:
         # Train IDSs
