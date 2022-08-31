@@ -405,7 +405,10 @@ def train_combiners(idss, combiners):
     # Load the dataset and compute alerts from all IDSs
     msgs = []
 
-    # Load the dataset
+    if not (settings.train_combiner_ipal or settings.train_combiner_state):
+        settings.logger.error("Required arguement: combiner training set")
+        exit(1)
+
     settings.logger.info("Loading dataset for combiner training.")
 
     with open_file(
