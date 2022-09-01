@@ -14,7 +14,12 @@ class HeuristicCombiner(Combiner):
     _needs_training = True
 
     _heuristic_default_settings = {
+        # Path to a file where the computed stats are saved during training (as csv)
         "stats-file": None,
+        # How to handle the case where there are exactly as many benign as malicious instances corresponding to an input word.
+        # (Special case: the input word does not occur in the dataset.)
+        # Default: classify as benign (False).
+        "tie_breaker": False,
     }
 
     def __init__(self, name=None):
@@ -38,27 +43,25 @@ class HeuristicCombiner(Combiner):
         # All possible IDS outputs (which are inputs to the combiner)
         inputs = self._get_input_order()
 
-        # For each tuple of IDS inputs, we count how many times it is malicious and how many times it is benign
-        input_stats = {input: {"malicious": 0, "benign": 0} for input in inputs}
+        # For each tuple of IDS inputs, we count how many times it is benign and how many times it is malicious.
+        # First index: benign, second index: malicious
+        input_stats = {input: [0, 0] for input in inputs}
 
         settings.logger.info("Computing statistics over train set...")
 
         for msg in msgs:
             alerts = tuple(msg["alerts"][ids_name] for ids_name in self._ids_order)
-            input_stats[alerts][
-                "malicious" if msg["malicious"] is not False else "benign"
-            ] += 1
+            malicious = msg["malicious"] is not False
+
+            input_stats[alerts][int(malicious)] += 1
 
         if self.settings["stats-file"] is not None:
             settings.logger.info("Dumping computed message statistics to file.")
             with open_file(self.settings["stats-file"], "wt", newline="") as f:
                 writer = csv.writer(f)
-                writer.writerow([*self._ids_order, "malicious", "benign"])
+                writer.writerow([*self._ids_order, "benign", "malicious"])
                 writer.writerows(
-                    [
-                        [*input, stats["malicious"], stats["benign"]]
-                        for input, stats in input_stats.items()
-                    ]
+                    [[*input, *stats] for input, stats in input_stats.items()]
                 )
 
         settings.logger.info("Computing heuristic combiner...")
@@ -66,8 +69,12 @@ class HeuristicCombiner(Combiner):
         # Assign an output to each input based on if there are more malicious or benign packets with that input
         outputs = []
         for input in inputs:
-            stats = input_stats[input]
-            outputs.append(stats["malicious"] >= stats["benign"])
+            benign, malicious = input_stats[input]
+
+            if benign == malicious:
+                outputs.append(self.settings["tie_breaker"])
+            else:
+                outputs.append(malicious > benign)
 
         self._combiner_fct = outputs
 
