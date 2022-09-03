@@ -10,7 +10,7 @@ from ids.featureids import FeatureIDS
 class SVM(FeatureIDS):
 
     _name = "SVM"
-    _description = "SVM forest classifier."
+    _description = "SVM classifier."
     _svm_default_settings = {
         # Wether to calculate the probability as metric in the live phase (takes more time!)
         "calculate_metric": False,
