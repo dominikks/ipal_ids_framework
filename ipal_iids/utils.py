@@ -26,3 +26,10 @@ def relative_to_config(file: str) -> Path:
     file_path = Path(file)
     return (config_file.parent / file_path).resolve()
 
+
+def filter_keys(dict, keys):
+    """
+    Remove all keys from dict that are not in keys.
+    """
+    for unwanted in set(dict.keys()) - set(keys):
+        del dict[unwanted]

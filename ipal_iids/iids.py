@@ -11,8 +11,8 @@ from pathlib import Path
 from combiner.utils import get_all_combiners
 
 import ipal_iids.settings as settings
-
 from ids.utils import get_all_iidss
+from ipal_iids.utils import filter_keys
 
 
 # Wrapper for hiding .gz files
@@ -378,6 +378,23 @@ def train_idss(idss):
             )
 
 
+def init_ipal_combiner(msg, ids_names):
+    if "alerts" not in msg:
+        msg["alerts"] = {}
+    else:
+        # Ensure only the idss from the config are considered
+        filter_keys(msg["alerts"], ids_names)
+
+    if "metrics" not in msg:
+        msg["metrics"] = {}
+    else:
+        # Ensure only the idss from the config are considered
+        filter_keys(msg["metrics"], ids_names)
+
+    msg["combiner_alerts"] = {}
+    msg["combiner_metrics"] = {}
+
+
 def train_combiners(idss, combiners):
     trainable_combiners = [
         combiner for combiner in combiners if combiner._needs_training
@@ -409,6 +426,8 @@ def train_combiners(idss, combiners):
         settings.logger.error("Required arguement: combiner training set")
         exit(1)
 
+    ids_names = [ids._name for ids in idss]
+
     settings.logger.info("Loading dataset for combiner training.")
 
     with open_file(
@@ -419,10 +438,7 @@ def train_combiners(idss, combiners):
         for msg in f:
             msg = json.loads(msg)
 
-            if "alerts" not in msg:
-                msg["alerts"] = {}
-            if "metrics" not in msg:
-                msg["metrics"] = {}
+            init_ipal_combiner(msg, ids_names)
 
             for ids in idss:
                 if (
@@ -483,6 +499,7 @@ def live_idss(idss, combiners):
         "state": {"msg": None, "is_first": True, "fd": settings.live_statefd},
         "combiner": {"msg": None, "is_first": True, "fd": settings.live_combinerfd},
     }
+    ids_names = [ids._name for ids in idss]
 
     while True:
         # load new msgs for all types
@@ -508,13 +525,7 @@ def live_idss(idss, combiners):
 
         msg = source_entry["msg"]
 
-        if not "alerts" in msg:
-            msg["alerts"] = {}
-        if not "metrics" in msg:
-            msg["metrics"] = {}
-
-        msg["combiner_alerts"] = {}
-        msg["combiner_metrics"] = {}
+        init_ipal_combiner(msg, ids_names)
 
         for ids in idss:
             if source == "ipal" and ids.requires("live.ipal"):
