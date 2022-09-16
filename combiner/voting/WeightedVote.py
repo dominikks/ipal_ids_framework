@@ -16,7 +16,7 @@ class WeightedVote(Combiner):
     def combine(self, msg):
         weight_sum = sum(
             [
-                (self.settings["weights"][name] or 0) if alert else 0
+                self.settings["weights"].get(name, 0) if alert else 0
                 for name, alert in msg["alerts"].items()
             ]
         )

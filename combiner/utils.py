@@ -1,3 +1,4 @@
+from combiner.voting.MetricVote import MetricVote
 from .voting.And import AndCombiner
 from .oracle.OptimalCombiner import OptimalCombiner
 from .other.HeuristicCombiner import HeuristicCombiner
@@ -11,6 +12,7 @@ combiners = [
     OrCombiner,
     AndCombiner,
     WeightedVote,
+    MetricVote,
     HeuristicCombiner,
     OptimalCombiner,
 ]
