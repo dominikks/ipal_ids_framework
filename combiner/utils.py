@@ -1,3 +1,4 @@
+from combiner.other.GurobiCombiner import GurobiCombiner
 from combiner.voting.MetricVote import MetricVote
 from .voting.And import AndCombiner
 from .oracle.OptimalCombiner import OptimalCombiner
@@ -15,6 +16,7 @@ combiners = [
     MetricVote,
     HeuristicCombiner,
     OptimalCombiner,
+    GurobiCombiner,
 ]
 
 
