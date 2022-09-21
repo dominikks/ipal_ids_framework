@@ -51,7 +51,7 @@ class GurobiCombiner(Combiner):
             )
 
             if msg["malicious"] is not False:
-                m.addConstr(s + slack_vars[msg_index] >= 1)
+                m.addConstr(s + slack_vars[msg_index] >= 2)
             else:
                 # We cannot use strict inequality as gurobi does not support it
                 m.addConstr(s - slack_vars[msg_index] <= 1)
@@ -76,7 +76,7 @@ class GurobiCombiner(Combiner):
             ]
         )
 
-        alert = weighted_sum >= 1
+        alert = weighted_sum >= 1.5
         return alert, weighted_sum
 
     def _get_model(self):
