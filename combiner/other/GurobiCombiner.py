@@ -33,11 +33,14 @@ class GurobiCombiner(Combiner):
         weight_vars = [m.addVar(name=f"w_{ids_name}") for ids_name in ids_names]
 
         # Add a slack variable for each message
-        slack_vars = [m.addVar(name=f"slack_{i}") for i in range(len(msgs))]
+        slack_vars = [
+            m.addVar(name=f"slack_{i}", vtype=gurobipy.GRB.BINARY)
+            for i in range(len(msgs))
+        ]
 
         # The objective is to minimize the slack
         m.setObjective(
-            gurobipy.quicksum([var ** 2 for var in slack_vars]), gurobipy.GRB.MINIMIZE,
+            gurobipy.quicksum([var for var in slack_vars]), gurobipy.GRB.MINIMIZE,
         )
 
         # Add soft constraints for each message
@@ -51,10 +54,10 @@ class GurobiCombiner(Combiner):
             )
 
             if msg["malicious"] is not False:
-                m.addConstr(s + slack_vars[msg_index] >= 2)
+                m.addConstr(s + 2 * slack_vars[msg_index] >= 2)
             else:
                 # We cannot use strict inequality as gurobi does not support it
-                m.addConstr(s - slack_vars[msg_index] <= 1)
+                m.addConstr(s - 10 * slack_vars[msg_index] <= 1)
 
         settings.logger.info("Starting model optimization...")
         m.optimize()
