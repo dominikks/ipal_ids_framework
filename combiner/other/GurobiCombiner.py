@@ -1,3 +1,4 @@
+from math import inf
 from combiner.combiner import Combiner
 import gurobipy
 import ipal_iids.settings as settings
@@ -15,6 +16,7 @@ class GurobiCombiner(Combiner):
         self._add_default_settings(self._gurobicombiner_default_settings)
 
         self._weights = None
+        self._bias = None
 
     def _get_activation(self, msg, ids_name):
         return float(
@@ -31,6 +33,9 @@ class GurobiCombiner(Combiner):
 
         # Add a weight variable for each ids
         weight_vars = [m.addVar(name=f"w_{ids_name}") for ids_name in ids_names]
+
+        # Add a general bias var
+        bias_var = m.addVar(name="bias", lb=-inf)
 
         # Add a slack variable for each message
         slack_vars = [
@@ -49,12 +54,15 @@ class GurobiCombiner(Combiner):
                 self._get_activation(msg, ids_name) for ids_name in ids_names
             ]
 
-            s = gurobipy.quicksum(
-                weight_vars[i] * activations[i] for i in range(len(ids_names))
+            s = (
+                gurobipy.quicksum(
+                    weight_vars[i] * activations[i] for i in range(len(ids_names))
+                )
+                + bias_var
             )
 
             if msg["malicious"] is not False:
-                m.addConstr(s + 2 * slack_vars[msg_index] >= 2)
+                m.addConstr(s + 10 * slack_vars[msg_index] >= 2)
             else:
                 # We cannot use strict inequality as gurobi does not support it
                 m.addConstr(s - 10 * slack_vars[msg_index] <= 1)
@@ -67,23 +75,28 @@ class GurobiCombiner(Combiner):
             ids_name: weight_var.x
             for ids_name, weight_var in zip(ids_names, weight_vars)
         }
-        settings.logger.info(f"Weights: {self._weights}")
+        self._bias = bias_var.x
+        settings.logger.info(f"Weights: {self._weights}, Bias: {self._bias}")
 
     def combine(self, msg):
-        weighted_sum = sum(
-            [
-                self._weights.get(name, 0) * float(metric)
-                for name, metric in msg[
-                    "metrics" if self.settings["use_metrics"] else "alerts"
-                ].items()
-            ]
+        weighted_sum = (
+            sum(
+                [
+                    self._weights.get(name, 0) * float(metric)
+                    for name, metric in msg[
+                        "metrics" if self.settings["use_metrics"] else "alerts"
+                    ].items()
+                ]
+            )
+            + self._bias
         )
 
         alert = weighted_sum >= 1.5
         return alert, weighted_sum
 
     def _get_model(self):
-        return {"weights": self._weights}
+        return {"weights": self._weights, "bias": self._bias}
 
     def _load_model(self, model):
         self._weights = model["weights"]
+        self._bias = model["bias"]
