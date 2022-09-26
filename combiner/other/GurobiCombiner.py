@@ -9,7 +9,11 @@ class GurobiCombiner(Combiner):
     _name = "GurobiCombiner"
     _needs_training = True
 
-    _gurobicombiner_default_settings = {"use_metrics": False}
+    _gurobicombiner_default_settings = {
+        "use_metrics": False,
+        # Number of threads to use (or 0 for automatic)
+        "threads": 0,
+    }
 
     def __init__(self, name=None):
         super().__init__(name=name)
@@ -30,6 +34,7 @@ class GurobiCombiner(Combiner):
 
         # Create the optimization model
         m = gurobipy.Model(self._name)
+        m.setParam("Threads", self.settings["threads"])
 
         # Add a weight variable for each ids
         weight_vars = [m.addVar(name=f"w_{ids_name}") for ids_name in ids_names]
