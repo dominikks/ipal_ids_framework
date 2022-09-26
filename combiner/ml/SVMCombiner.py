@@ -53,5 +53,5 @@ class SVMCombiner(Combiner):
         }
 
     def _load_model(self, model):
-        self._svm = model["svm"]
+        self._svm = model["model"]
         self._ids_order = model["ids_order"]
