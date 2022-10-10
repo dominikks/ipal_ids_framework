@@ -1,12 +1,13 @@
 from .ml.SVMCombiner import SVMCombiner
 from .other.GurobiCombiner import GurobiCombiner
-from .voting.MetricVote import MetricVote
-from .voting.And import AndCombiner
+from .linear.MetricVote import MetricVote
+from .linear.And import AndCombiner
 from .oracle.OptimalCombiner import OptimalCombiner
 from .other.HeuristicCombiner import HeuristicCombiner
-from .voting.WeightedVote import WeightedVote
-from .voting.Or import OrCombiner
-from .voting.MajorityVote import MajorityVote
+from .linear.WeightedVote import WeightedVote
+from .linear.Or import OrCombiner
+from .linear.MajorityVote import MajorityVote
+from .linear.LogisticRegression import LogisticRegression
 
 
 combiners = [
@@ -19,6 +20,7 @@ combiners = [
     OptimalCombiner,
     GurobiCombiner,
     SVMCombiner,
+    LogisticRegression,
 ]
 
 
