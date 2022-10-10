@@ -73,7 +73,25 @@ class GurobiCombiner(Combiner):
                 m.addConstr(s - 10 * slack_vars[msg_index] <= 1)
 
         settings.logger.info("Starting model optimization...")
-        m.optimize()
+
+        def callback(model, where):
+            if where == gurobipy.GRB.Callback.MIPSOL:
+                settings.logger.info(
+                    "Gurobi optimization callback. Printing current state."
+                )
+
+                settings.logger.info(
+                    f"Objective Value: {model.cbGet(gurobipy.GRB.Callback.MIPSOL_OBJ)}"
+                )
+
+                vars = [*weight_vars, bias_var]
+                vals = model.cbGetSolution(vars)
+
+                settings.logger.info("Variables:")
+                for (var, val) in zip(vars, vals):
+                    settings.logger.info(f"  {var.varName}: {val}")
+
+        m.optimize(callback)
         settings.logger.info(f"Optimization done, objective value: {m.objVal}")
 
         self._weights = {
