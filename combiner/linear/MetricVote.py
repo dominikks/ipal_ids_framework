@@ -21,5 +21,5 @@ class MetricVote(Combiner):
             ]
         )
 
-        alert = metric_sum >= self.settings["threshold"]
+        alert = bool(metric_sum >= self.settings["threshold"])
         return alert, metric_sum
