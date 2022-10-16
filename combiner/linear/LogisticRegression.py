@@ -4,17 +4,24 @@ import ipal_iids.settings as settings
 
 
 class LogisticRegression(Combiner):
+
     _name = "LogisticRegression"
     _needs_training = True
 
+    _logisticregression_default_settings = {"use_metrics": False}
+
     def __init__(self, name=None):
         super().__init__(name)
+        self._add_default_settings(self._logisticregression_default_settings)
 
         self._model = None
         self._ids_order = None
 
     def _get_activations(self, msg):
-        return [float(msg["alerts"][ids]) for ids in self._ids_order]
+        return [
+            float(msg["metrics" if self.settings["use_metrics"] else "alerts"][ids])
+            for ids in self._ids_order
+        ]
 
     def train(self, msgs):
         self._ids_order = list(msgs[0]["alerts"].keys())
