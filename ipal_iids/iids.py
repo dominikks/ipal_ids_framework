@@ -52,7 +52,10 @@ def dump_ids_default_config(name):
 
     # Create IDSs default config
     config = {
-        name: {"_type": name, **get_all_iidss()[name](name=name)._default_settings,}
+        name: {
+            "_type": name,
+            **get_all_iidss()[name](name=name)._default_settings,
+        }
     }
     config[name]["model-file"] = "./model"
 
@@ -132,6 +135,13 @@ def prepare_arg_parser(parser):
         metavar="FILE",
         help="load IDS and combiner configuration and parameters from the specified file ('*.gz' compressed).",
         required=False,
+    )
+
+    parser.add_argument(
+        "--passthrough-idss",
+        dest="passthrough_idss",
+        action="store_true",
+        help="Passthrough all IDSs in the dataset to the combiner, even if they are not defined in the config",
     )
 
     # Further options
@@ -302,6 +312,13 @@ def load_settings(args):  # noqa: C901
         else:
             settings.output_traincombinerfd = sys.stdout
 
+    # Parse passthrough mode
+    if args.passthrough_idss:
+        settings.passthrough_idss = True
+        settings.logger.info(
+            "Passing ALL IDSS through to the combiner, even if they are not configured"
+        )
+
     # Parse config
     settings.config = args.config
 
@@ -381,13 +398,13 @@ def train_idss(idss):
 def init_ipal_combiner(msg, ids_names):
     if "alerts" not in msg:
         msg["alerts"] = {}
-    else:
+    elif not settings.passthrough_idss:
         # Ensure only the idss from the config are considered
         filter_keys(msg["alerts"], ids_names)
 
     if "metrics" not in msg:
         msg["metrics"] = {}
-    else:
+    elif not settings.passthrough_idss:
         # Ensure only the idss from the config are considered
         filter_keys(msg["metrics"], ids_names)
 
