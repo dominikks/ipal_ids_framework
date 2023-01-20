@@ -21,6 +21,7 @@ live_statefd: TextIOWrapper = None
 live_combiner = None
 live_combinerfd: TextIOWrapper = None
 retrain = False
+passthrough_idss = False
 output = None
 outputfd: TextIOWrapper
 output_traincombiner = None
