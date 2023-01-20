@@ -110,6 +110,9 @@ class NaiveBayes(FeatureIDS):
             )
             return False
 
+        # Overwrite the calculate_metric setting
+        model["settings"]["calculate_metric"] = self.settings["calculate_metric"]
+
         # Load model
         assert self._name == model["_name"]
         super().load_trained_model(model["preprocessors"])
