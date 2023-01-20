@@ -68,7 +68,8 @@ class Combiner(ABC):
             )
             return False
 
-        self.settings = model["settings"]
+        # Ensure default settings are kept
+        self.settings = {**self.settings, **model["settings"]}
         self._load_model(model)
 
         return True
