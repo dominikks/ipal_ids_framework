@@ -40,7 +40,7 @@ class CategoricalPreprocessor(Preprocessor):
 
             try:
                 value[i] = self.encoder[i][str(value[i])]
-            except ValueError:
+            except KeyError:
                 settings.logger.critical(
                     "Value {} not in trained categories".format(value[i])
                 )
