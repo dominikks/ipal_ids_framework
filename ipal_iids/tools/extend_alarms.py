@@ -50,13 +50,6 @@ def prepare_arg_parser(parser):
         nargs="+",
     )
 
-    # Name of BLSTM
-    parser.add_argument(
-        "--blstm-name",
-        help="name of the BLSTM model whose alerts should be extended. If omitted, the alerts and metrics arrays are left untouched.",
-        required=False,
-    )
-
     # Logging
     parser.add_argument(
         "--log",
@@ -75,7 +68,7 @@ def prepare_arg_parser(parser):
     )
 
 
-def extend_alarms(file, blstm_name=None):
+def extend_alarms(file):
 
     ipal = []
 
@@ -89,21 +82,33 @@ def extend_alarms(file, blstm_name=None):
         if "adjust" not in ipal[i]:
             continue
 
-        # Adjust alert
-        for offset, alert, metric in ipal[i]["adjust"]:
-            assert offset <= 0
+        if type(ipal[i]["adjust"]) is dict:
+            # We should adjust alerts and metrics
+            for ids_name, adjust in ipal[i]["adjust"].items():
+                for offset, alert, metric in adjust:
+                    assert offset <= 0
 
-            if i + offset < 0:  # Log warning!
-                settings.logger.error(
-                    f"Offset is {offset + i}! Defaulting to dataset start."
-                )
-                offset = -i
+                    if i + offset < 0:
+                        settings.logger.error(
+                            f"Offset is {offset + i}! Defaulting to dataset start."
+                        )
+                        offset = -i
 
-            ipal[i + offset]["ids"] = alert
+                    ipal[i + offset]["alerts"][ids_name] = alert
+                    ipal[i + offset]["metrics"][ids_name] = metric
 
-            if blstm_name:
-                ipal[i + offset]["alerts"][blstm_name] = alert
-                ipal[i + offset]["metrics"][blstm_name] = metric
+        else:
+            # Adjust alert
+            for offset, alert, metric in ipal[i]["adjust"]:
+                assert offset <= 0
+
+                if i + offset < 0:  # Log warning!
+                    settings.logger.error(
+                        f"Offset is {offset + i}! Defaulting to dataset start."
+                    )
+                    offset = -i
+
+                ipal[i + offset]["ids"] = alert
 
         del ipal[i]["adjust"]
 
@@ -120,9 +125,6 @@ def main():
     args = parser.parse_args()
     initialize_logger(args)
 
-    if not args.blstm_name:
-        settings.logger.info("BLSTM name not provided, only extending ids output")
-
     N = 0
     for file in args.files:
         N += 1
@@ -130,7 +132,7 @@ def main():
             "Extending Alarms ({}/{}) {}".format(N, len(args.files), file)
         )
 
-        extend_alarms(file, args.blstm_name)
+        extend_alarms(file)
 
 
 if __name__ == "__main__":

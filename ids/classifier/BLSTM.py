@@ -189,7 +189,11 @@ class BLSTM(FeatureIDS):
 
         if "adjust" in self.settings:  # Annotate offset for adjust script
             offsets = list(range(-self.parameters["sequence_length"] + 1, 1))
-            msg["adjust"] = list(zip(offsets, alerts, predict))
+
+            if not "adjust" in msg or type(msg["adjust"]) is not dict:
+                msg["adjust"] = {}
+
+            msg["adjust"][self._name] = list(zip(offsets, alerts, predict))
 
         return any(alerts), max(predict)
 
