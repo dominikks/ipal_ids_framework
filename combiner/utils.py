@@ -1,4 +1,5 @@
 from .time_series.LSTM import LSTMCombiner
+from .time_series.RunningAverageSVM import RunningAverageSVMCombiner
 from .ml.SVMCombiner import SVMCombiner
 from .other.GurobiCombiner import GurobiCombiner
 from .linear.MetricVote import MetricVote
@@ -23,6 +24,7 @@ combiners = [
     SVMCombiner,
     LogisticRegression,
     LSTMCombiner,
+    RunningAverageSVMCombiner,
 ]
 
 

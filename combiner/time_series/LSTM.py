@@ -16,8 +16,10 @@ class LSTMCombiner(Combiner):
 
     _lstmcombiner_default_settings = {
         "use_metrics": False,
-        "sequence_length": 32,
-        "epochs": 50,
+        "epochs": 20,
+        # Overall, the combiner looks back lookback * stride data points
+        "lookback": 30,
+        "stride": 1,
     }
 
     def __init__(self, name=None):
@@ -32,9 +34,7 @@ class LSTMCombiner(Combiner):
     def _lstm_model(self, input_dim):
         model = Sequential()
 
-        model.add(
-            LSTM(input_dim, input_shape=(self.settings["sequence_length"], input_dim))
-        )
+        model.add(LSTM(input_dim, input_shape=(self.settings["lookback"], input_dim)))
         model.add(Dense(1, activation="sigmoid"))
 
         model.compile(loss="binary_crossentropy", optimizer=Adam(), metrics=["acc"])
@@ -49,12 +49,17 @@ class LSTMCombiner(Combiner):
             for ids in self._ids_order
         ]
 
+    def _get_window_size(self):
+        return (self.settings["lookback"] - 1) * self.settings["stride"] + 1
+
     def _get_sequences(self, events, annotations):
         Xseq, Yseq = [], []
 
-        for i in range(0, len(events) - self.settings["sequence_length"] + 1):
-            Xseq.append(events[i : i + self.settings["sequence_length"]])
-            Yseq.append(annotations[i + self.settings["sequence_length"] - 1])
+        window_size = self._get_window_size()
+
+        for i in range(len(events) - window_size + 1):
+            Xseq.append(events[i : i + window_size : self.settings["stride"]])
+            Yseq.append(annotations[i + window_size - 1])
 
         return Xseq, Yseq
 
@@ -79,12 +84,15 @@ class LSTMCombiner(Combiner):
     def combine(self, msg):
         self._buffer.append(self._get_activations(msg))
 
-        if len(self._buffer) > self.settings["sequence_length"]:
+        window_size = self._get_window_size()
+        if len(self._buffer) > window_size:
             self._buffer.pop(0)
-        elif len(self._buffer) < self.settings["sequence_length"]:
+        elif len(self._buffer) < window_size:
             return False, 0
 
-        prediction = self._lstm.predict([self._buffer])[0]
+        sequence = self._buffer[:: self.settings["stride"]]
+
+        prediction = float(self._lstm.predict([sequence], verbose=False)[0][0])
         alert = bool(prediction > 0.5)
 
         return alert, prediction
